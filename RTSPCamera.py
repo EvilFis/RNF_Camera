@@ -4,11 +4,12 @@ import cv2
 import time
 import typing
 import logging
+import datetime
 import numpy as np
 
-from multiprocessing import Barrier
+from multiprocessing import Barrier, Pipe
 
-from BaseСamera import BaseCamera
+from .BaseСamera import BaseCamera
 
 
 class Camera(BaseCamera):
@@ -57,12 +58,18 @@ class Camera(BaseCamera):
         self.__mode = mode.lower()
         self.__flag = True
 
+        self.__frame = np.ndarray
+
         logging.info(f"[CCTV] Camera using {self.__device_id} camera id. Operating mode '{self.__mode}'")
     
 
     def __str__(self) -> str:
         return f"[CCTV] Camera using '{self.__device_id}' camera id.\nOperating mode '{self.__mode}'"
     
+
+    def get_frame(self):
+        return self.__frame
+
 
     @property
     def device_id(self) -> typing.Union[int, str]:
@@ -300,7 +307,8 @@ The folder has already been created")
                path: str = "./",
                show_gui: bool = True,
                fps: int = 30,
-               barrier: Barrier = None) -> None:
+               barrier: Barrier = None,
+               sender: Pipe = None) -> None:
         """Запуск потока видеозаписи видео/сохранения кадров/вывода
 
         Args:
@@ -341,23 +349,33 @@ The folder has already been created")
         
         while self.__flag:
             
+            datetime_now = datetime.datetime.now()
+
             try:
                 key = cv2.waitKey(1)
                 _, frame = cap.read()
 
                 frame = cv2.resize(frame, size)
-                
+
                 # Сохранение кадра в файл
                 if (self.__mode == "frame"):
                     frame, counter, start_time = self._save_frame(start_time, time_out, path, frame, counter)
                 
                 # Сохранение видео в файл
                 elif (self.__mode == "video"):
+                    frame = cv2.putText(frame, f"{datetime_now.hour}:{datetime_now.minute}:{datetime_now.second}",
+                    (20, 20), cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                    1, (0, 0, 255), 1)
                     writer.write(frame)
 
                 elif self.__mode == "centring":
                     frame = self.__centring(frame)
                 
+                self.__frame = frame
+
+                if sender:
+                    sender.send((frame, ))
+
                 # Отображение окна предосмотра видео
                 if show_gui:
                     cv2.imshow(f"Camera {self.__device_id}", frame)

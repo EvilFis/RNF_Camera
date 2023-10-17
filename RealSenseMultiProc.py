@@ -1,6 +1,6 @@
-from multiprocessing import Process, Barrier
+from multiprocessing import Process, Barrier, Pipe
 
-from RealSenseCamera import CameraRS
+from .RealSenseCamera import CameraRS
 
 class RealSenseMultiProc(Process):
 
@@ -14,7 +14,8 @@ class RealSenseMultiProc(Process):
                  path: str = "./",
                  show_gui_color: bool = True,
                  show_gui_depth: bool = True, 
-                 barrier: Barrier = None):
+                 barrier: Barrier = None,
+                 sender: Pipe = None):
         
         super(RealSenseMultiProc, self).__init__()
 
@@ -28,6 +29,7 @@ class RealSenseMultiProc(Process):
         self.show_gui_color = show_gui_color
         self.show_gui_depth = show_gui_depth
         self.barrier = barrier
+        self.sender = sender
 
     def run(self):
 
@@ -39,4 +41,5 @@ class RealSenseMultiProc(Process):
                   path = self.path,
                   show_gui_color = self.show_gui_color,
                   show_gui_depth  = self.show_gui_depth,
-                  barrier=self.barrier)
+                  barrier=self.barrier,
+                  sender=self.sender)

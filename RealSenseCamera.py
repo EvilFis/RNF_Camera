@@ -4,12 +4,13 @@ import cv2
 import time
 import typing
 import logging
+import datetime
 import numpy as np
 import pyrealsense2 as rs
 
-from multiprocessing import Barrier
+from multiprocessing import Barrier, Pipe
 
-from BaseСamera import BaseCamera
+from .BaseСamera import BaseCamera
 
 
 class CameraRS(BaseCamera):
@@ -73,6 +74,9 @@ class CameraRS(BaseCamera):
         
         self.__mode = mode.lower()
         self.__flag = True
+
+        self.__color_frame = np.ndarray
+        self.__depth_frame = np.ndarray
         
         self.__colorizer.set_option(rs.option.visual_preset, 0)
 
@@ -145,6 +149,9 @@ class CameraRS(BaseCamera):
         logging.info(f"[RS] A new camera mode has been installed {mode}")
         self.__mode = mode
     
+    def getFrames(self) -> tuple:
+        return self.__color_frame, self.__depth_frame
+
     @staticmethod
     def get_devices_str() -> list:
         
@@ -421,7 +428,8 @@ The folder has already been created")
                path: str = "./",
                show_gui_color: bool = True,
                show_gui_depth: bool = True,
-               barrier: Barrier = None):
+               barrier: Barrier = None,
+               sender: Pipe = None):
         """Запуск потока видеозаписи видео/сохранения кадров/вывода
 
         Args:
@@ -478,6 +486,7 @@ The folder has already been created")
         while self.__flag:
             try:
                 
+                datetime_now = datetime.datetime.now()
                 key = cv2.waitKey(1)
                 
                 # Предобработка кадров глубины и цвета
@@ -489,7 +498,7 @@ The folder has already been created")
                 # depth_i = cv2.applyColorMap(cv2.convertScaleAbs(depth_f, alpha=0.05), cv2.COLORMAP_JET)
                 depth_i = np.asanyarray(self.__colorizer.colorize(depth_f).get_data())
                 color_i = np.asanyarray(color_f.get_data())
-                
+
                 #  Сохранение кадра в файл
                 if self.__mode == "frame":
                     color_i, counter, start_time = self._save_frame(start_time, time_out, 
@@ -498,12 +507,23 @@ The folder has already been created")
                                                                     counter)
                 # Сохранение видео в файл
                 elif self.__mode == "video":
+                    color_i = cv2.putText(color_i, 
+                                          f"{datetime_now.hour}:{datetime_now.minute}:{datetime_now.second}",
+                                          (20, 20), cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                                          1, (0, 0, 255), 1)
+                    
                     depth_writer.write(depth_i) 
                     color_writer.write(color_i)
 
                 elif self.__mode == "centring":
                     color_i = self.__centring(color_i)
                 
+                self.__color_frame = color_i
+                self.__depth_frame = depth_i
+
+                if sender:
+                    sender.send((color_i, depth_i))
+
                 # Отображение окна предосмотра видео
                 if show_gui_color:
                     cv2.imshow(f"{self.__device_name} | {self.__device_serial_number} color", color_i)
