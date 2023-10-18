@@ -535,12 +535,15 @@ The folder has already been created")
                 if key == ord('q') & 0xFF or not self.__flag:
                     logging.info("[RS] The recording was completed by pressing a key or calling the 'stop' method")
                     self.release(writers=[depth_writer, color_writer])
-                
+                    cv2.destroyAllWindows()
+
                 # Выход при сохранении всех изображений
                 if counter >= img_count:
                     logging.info("[RS] The recording has ended. All images have been successfully collected")
                     self.release(writers=[depth_writer, color_writer])
+                    cv2.destroyAllWindows()
                 
             except:
                 logging.error(f"[RS] An unexpected error has occurred, the operation of the camera under the index {self.__device_name} #{self.__device_serial_number} is suspended")
                 self.release(writers=[depth_writer, color_writer])
+                cv2.destroyAllWindows()
